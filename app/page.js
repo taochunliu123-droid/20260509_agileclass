@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -155,6 +155,17 @@ function TaskCard({ task }) {
   );
 }
 
+// DroppableColumn Component
+function DroppableColumn({ id, children }) {
+  const { setNodeRef } = useDroppable({ id });
+
+  return (
+    <div ref={setNodeRef} className="space-y-3 min-h-[400px] border-2 border-dashed border-gray-200 rounded-xl p-3">
+      {children}
+    </div>
+  );
+}
+
 // Main App Component
 export default function ProductDevBoard() {
   const [tasks, setTasks] = useState([]);
@@ -208,10 +219,21 @@ export default function ProductDevBoard() {
     if (!over) return;
 
     const activeTask = tasks.find((t) => t.id === active.id);
-    const overContainer = over.id;
+    if (!activeTask) return;
 
-    if (activeTask && ['Backlog', 'Sprint', 'Done'].includes(overContainer)) {
-      const newStatus = overContainer;
+    // 檢查是否拖到欄位本身（Backlog, Sprint, Done）
+    let newStatus = null;
+    if (['Backlog', 'Sprint', 'Done'].includes(over.id)) {
+      newStatus = over.id;
+    } else {
+      // 如果拖到另一張卡片上，找出該卡片所在的欄位
+      const overTask = tasks.find((t) => t.id === over.id);
+      if (overTask) {
+        newStatus = overTask.status;
+      }
+    }
+
+    if (newStatus && activeTask.status !== newStatus) {
       const now = new Date().toISOString();
 
       setTasks((prevTasks) =>
@@ -426,14 +448,11 @@ export default function ProductDevBoard() {
                 </div>
 
                 <SortableContext items={getTasksByStatus(status).map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                  <div
-                    id={status}
-                    className="space-y-3 min-h-[400px] border-2 border-dashed border-gray-200 rounded-xl p-3"
-                  >
+                  <DroppableColumn id={status}>
                     {getTasksByStatus(status).map((task) => (
                       <SortableTask key={task.id} task={task} onEdit={handleEditTask} onDelete={handleDeleteTask} />
                     ))}
-                  </div>
+                  </DroppableColumn>
                 </SortableContext>
               </div>
             ))}
